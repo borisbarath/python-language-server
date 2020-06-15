@@ -2,5 +2,9 @@ include README.rst
 include versioneer.py
 include pyls/_version.py
 include LICENSE
+include model/model.json
+include model/model.h5
+include model/encodings_int.json
+include model/token_count.json
 include .pylintrc
 recursive-include test *.py
