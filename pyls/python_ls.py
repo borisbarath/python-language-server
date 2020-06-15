@@ -4,12 +4,14 @@ import logging
 import os
 import socketserver
 import threading
+import numpy as np
 from functools import partial
 from hashlib import sha256
 
 from pyls_jsonrpc.dispatchers import MethodDispatcher
 from pyls_jsonrpc.endpoint import Endpoint
 from pyls_jsonrpc.streams import JsonRpcStreamReader, JsonRpcStreamWriter
+from keras.models import model_from_json
 
 from . import lsp, _utils, uris
 from .config import config
@@ -43,27 +45,27 @@ class _StreamHandlerWrapper(socketserver.StreamRequestHandler, object):
     def auth(self, cb):
         token = ''
         if "JUPYTER_TOKEN" in os.environ:
-          token = os.environ["JUPYTER_TOKEN"]
+            token = os.environ["JUPYTER_TOKEN"]
         else:
-          log.warn('! Missing jupyter token !')
+            log.warn('! Missing jupyter token !')
 
         data = self.rfile.readline()
         try:
             auth_req = json.loads(data.decode().split('\n')[0])
         except:
             log.error('Error parsing authentication message')
-            auth_error_msg = { 'msg': 'AUTH_ERROR' }
+            auth_error_msg = {'msg': 'AUTH_ERROR'}
             self.wfile.write(json.dumps(auth_error_msg).encode())
             return
 
         hashed_token = sha256(token.encode()).hexdigest()
         if auth_req.get('token') == hashed_token:
-            auth_success_msg = { 'msg': 'AUTH_SUCCESS' }
+            auth_success_msg = {'msg': 'AUTH_SUCCESS'}
             self.wfile.write(json.dumps(auth_success_msg).encode())
             cb()
         else:
             log.info('Failed to authenticate: invalid credentials')
-            auth_invalid_msg = { 'msg': 'AUTH_INVALID_CRED' }
+            auth_invalid_msg = {'msg': 'AUTH_INVALID_CRED'}
             self.wfile.write(json.dumps(auth_invalid_msg).encode())
 
 
@@ -129,6 +131,16 @@ class PythonLanguageServer(MethodDispatcher):
         self._endpoint = Endpoint(self, self._jsonrpc_stream_writer.write, max_workers=MAX_WORKERS)
         self._dispatchers = []
         self._shutdown = False
+
+        with open("model/model.json", 'r') as json_file:
+            loaded_model_json = json_file.read()
+        self.model = model_from_json(loaded_model_json)
+        self.model.load_weights("model/model.h5")
+        self.encodings = {}
+        with open("model/encodings_int.json", 'r') as json_file:
+            self.encodings = json.load(json_file)
+        log.info("loaded the model, weights and encodings")
+        self.vocab = self.encodings.keys()
 
     def start(self):
         """Entry point for the server."""
