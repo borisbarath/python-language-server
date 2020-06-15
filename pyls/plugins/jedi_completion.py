@@ -51,6 +51,7 @@ _IMPORTS = ('import_name', 'import_from')
 # Types of parso node for errors
 _ERRORS = ('error_node', )
 
+
 @hookimpl
 def pyls_completions(config, document, position):
     """Get formatted completions for current code position"""
@@ -68,7 +69,14 @@ def pyls_completions(config, document, position):
 
     should_include_params = settings.get('include_params')
     include_params = snippet_support and should_include_params and use_snippets(document, position)
-    return [_format_completion(c, include_params) for c in completions] or None
+
+    lines = document.source.split("\n")
+    # join lines as seen below, return it (this will be used as model input)
+    new_lines = lines[:position['line'] + 1]
+    new_lines[position['line']] = new_lines[position['line']][:position['character']]
+
+    return [[_format_completion(c, include_params) for c in completions], '\n'.join(new_lines)] or None
+
 
 def is_exception_class(name):
     """
@@ -119,22 +127,24 @@ def use_snippets(document, position):
     return (expr_type not in _IMPORTS and
             not (expr_type in _ERRORS and 'import' in code))
 
+
 @hookimpl
 def pyls_completion_detail(config, item):
     d = COMPLETION_CACHE.get(item)
     if d:
-      completion = {
-        'label': '', #_label(d),
-        'kind': _TYPE_MAP[d.type],
-        'detail': '', #_detail(d),
-        'documentation': _utils.format_docstring(d.docstring()),
-        'sortText': '', #_sort_text(d),
-        'insertText': d.name
-      }
-      return completion
+        completion = {
+            'label': '',  # _label(d),
+            'kind': _TYPE_MAP[d.type],
+            'detail': '',  # _detail(d),
+            'documentation': _utils.format_docstring(d.docstring()),
+            'sortText': '',  # _sort_text(d),
+            'insertText': d.name
+        }
+        return completion
     else:
-      print('Completion missing')
-      return None
+        print('Completion missing')
+        return None
+
 
 def _format_completion(d, include_params=True):
     COMPLETION_CACHE[d.name] = d

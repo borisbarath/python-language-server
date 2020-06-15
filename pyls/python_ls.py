@@ -267,7 +267,9 @@ class PythonLanguageServer(MethodDispatcher):
         return flatten(self._hook('pyls_code_lens', doc_uri))
 
     def completions(self, doc_uri, position):
-        completions = self._hook('pyls_completions', doc_uri, position=position)
+        res = self._hook('pyls_completions', doc_uri, position=position)
+        completions = res[0][0]
+        code = res[0][1]
         return {
             'isIncomplete': True,
             'items': flatten(completions)
