@@ -4,6 +4,7 @@ import logging
 import os
 import socketserver
 import threading
+import keras
 import numpy as np
 from functools import partial
 from hashlib import sha256
@@ -270,9 +271,58 @@ class PythonLanguageServer(MethodDispatcher):
         res = self._hook('pyls_completions', doc_uri, position=position)
         completions = res[0][0]
         code = res[0][1]
+
+        encoded_line = []
+
+        if len(code) != 0:
+            g = code.split(" ")
+            tokenized_line = [token for token in g[:-1]]
+            # remove infrequent words (get the list or set or map from deepnote)
+            filtered_line = list(
+                filter(lambda x: x in self.vocab, tokenized_line))
+            if len(filtered_line) == 0:
+                encoded_line = np.array([np.zeros(len(self.encodings))
+                                         for _ in range(40)])
+            else:
+                for item in filtered_line:
+                    temp = np.zeros(len(self.encodings))
+                    temp[self.encodings[item]] = 1
+                    encoded_line.append(temp)
+
+                # one-hot encode and pad line
+                encoded_line = keras.preprocessing.sequence.pad_sequences(
+                    [encoded_line], maxlen=40)
+        else:
+            encoded_line = [np.zeros(len(self.encodings))
+                            for _ in range(40)]
+
+        oov_completions = []
+        enc_completions = {}
+        for i, c in enumerate(completions):
+            if c['label'] in self.vocab:
+                tmp = np.zeros(len(self.encodings))
+                tmp[self.encodings[c['label']]] = 1
+                enc_completions[c['label']] = (c, tmp)
+
+        prediction_scores = []
+        model_input_seq = encoded_line.reshape(1, 40, 1991)
+
+        for c in enc_completions.keys():
+            comp, enc = enc_completions[c]
+            model_input_compl = [enc]
+            score = self.model.predict([np.array(model_input_seq), np.array(model_input_compl)])
+
+            prediction_scores.append((comp, score[0][0]))
+        prediction_scores = sorted(prediction_scores, key=lambda x: x[1], reverse=True)
+        preds = [pred for (pred, score) in prediction_scores]
+        preds = preds + oov_completions
+
+        for i, comp in enumerate(preds):
+            comp['sortText'] = chr(ord('a') + i)
+
         return {
             'isIncomplete': True,
-            'items': flatten(completions)
+            'items': flatten(preds)
         }
 
     def completion_detail(self, item):
