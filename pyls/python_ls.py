@@ -319,10 +319,9 @@ class PythonLanguageServer(MethodDispatcher):
 
         for i, comp in enumerate(preds):
             comp['sortText'] = chr(ord('a') + i)
-
         return {
             'isIncomplete': True,
-            'items': flatten(preds)
+            'items': preds
         }
 
     def completion_detail(self, item):
