@@ -319,6 +319,8 @@ class PythonLanguageServer(MethodDispatcher):
 
         for i, comp in enumerate(preds):
             comp['sortText'] = chr(ord('a') + i)
+            comp['insertText'] = comp['label']
+
         return {
             'isIncomplete': True,
             'items': preds
