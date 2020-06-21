@@ -305,6 +305,8 @@ class PythonLanguageServer(MethodDispatcher):
                 tmp = np.zeros(len(self.encodings))
                 tmp[self.encodings[c['label']]] = 1
                 enc_completions[c['label']] = (c, tmp)
+            else:
+                oov_completions.append(c)
 
         prediction_scores = []
         model_input_seq = encoded_line.reshape(1, 40, 1991)
