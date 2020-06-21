@@ -269,6 +269,8 @@ class PythonLanguageServer(MethodDispatcher):
 
     def completions(self, doc_uri, position):
         res = self._hook('pyls_completions', doc_uri, position=position)
+        if len(res) == 0 or len(res[0]) == 0:
+            return
         completions = res[0][0]
         code = res[0][1]
 
@@ -321,6 +323,8 @@ class PythonLanguageServer(MethodDispatcher):
             comp['sortText'] = chr(ord('a') + i)
             comp['insertText'] = comp['label']
 
+        log.debug("completions are here")
+        log.debug(preds)
         return {
             'isIncomplete': True,
             'items': preds
